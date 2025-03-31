@@ -1,0 +1,54 @@
+# MovingWindowBatcher - Descripción Matemática
+
+## Definiciones
+
+- **Datos de entrada**: Sea \( D = \{(x_1, y_1), (x_2, y_2), \ldots, (x_n, y_n)\} \) donde \( x_i \) son las características y \( y_i \) son los targets.
+- **Tamaño de la ventana**: \( \text{instance\_size} \) es el número de elementos consecutivos que se toman para formar una ventana.
+- **Tamaño del batch**: \( \text{batch\_size} \) es el número de instancias que se agrupan en un batch.
+- **Número total de instancias**: \( n \) es el número total de instancias que se procesan.
+
+## Proceso de Generación de Ventanas
+
+1. **Formación de Ventanas**:
+   Para cada posición \( i \) en el conjunto de datos \( D \), se forma una ventana de tamaño \( \text{instance\_size} \):
+   \[
+   \text{ventana}_i = D[i : i + \text{instance\_size}] = \{(x_i, y_i), (x_{i+1}, y_{i+1}), \ldots, (x_{i+\text{instance\_size}-1}, y_{i+\text{instance\_size}-1})\}
+   \]
+   donde \( i \) varía desde \( 0 \) hasta \( n - \text{instance\_size} \).
+
+2. **Deslizamiento de Ventanas**:
+   Las ventanas se deslizan a lo largo del conjunto de datos, incrementando \( i \) en 1 en cada paso:
+   \[
+   \text{ventana}_{i+1} = D[i+1 : i + 1 + \text{instance\_size}]
+   \]
+
+3. **Agrupación en Batches**:
+   Cada batch se compone de \( \text{batch\_size} \) instancias:
+   \[
+   \text{batch}_j = \{\text{ventana}_{i}, \text{ventana}_{i+1}, \ldots, \text{ventana}_{i+\text{batch\_size}-1}\}
+   \]
+   donde \( j \) varía según el número de batches generados.
+
+## Salida
+
+- **DataFrame \( X \)**: Cada batch produce un DataFrame \( X \) que contiene las características de las instancias en forma de matriz:
+   \[
+   X = \begin{bmatrix}
+   x_{i} & x_{i+1} & \ldots & x_{i+\text{instance\_size}-1} \\
+   x_{i+1} & x_{i+2} & \ldots & x_{i+\text{instance\_size}} \\
+   \vdots & \vdots & \ddots & \vdots \\
+   \end{bmatrix}
+   \]
+
+- **Series \( y \)**: La salida \( y \) es una Series que contiene los targets correspondientes a cada ventana:
+   \[
+   y = \begin{bmatrix}
+   y_{i+\text{instance\_size}-1} \\
+   y_{i+\text{instance\_size}} \\
+   \vdots \\
+   \end{bmatrix}
+   \]
+
+## Resumen
+
+En resumen, la clase `MovingWindowBatcher` implementa un proceso de generación de ventanas deslizantes que produce batches de datos a partir de un conjunto de datos de entrada, donde cada ventana se compone de un número fijo de instancias y cada batch agrupa un número fijo de estas ventanas.
