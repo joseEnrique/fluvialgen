@@ -36,6 +36,9 @@ class MovingWindowBatcher(RiverDatasetGenerator):
         self.current_window = []
         self._count = 0
         self.current_batch = []
+        self.buffer = []
+        self.windows = []
+        self.window_idx = 0
 
     def create_instance(self, start_idx):
         """
@@ -48,73 +51,86 @@ class MovingWindowBatcher(RiverDatasetGenerator):
 
     def _convert_to_pandas(self, batch):
         """
-        Converts a batch of instances into a DataFrame (X) and a Series (y).
+        Converts a batch of instances to a DataFrame (X) and a Series (y).
         
         Args:
             batch: List of instances, where each instance is a list of tuples (x,y)
             
         Returns:
             tuple: (pd.DataFrame, pd.Series) where:
-            - X is a DataFrame with all features concatenated horizontally
-            - y is a Series with all targets concatenated horizontally
+            - X is a DataFrame with all x data from all instances
+            - y is a Series with all y values from all instances
         """
-        X_rows = []
-        y_rows = []
+        all_x_data = []  # List for all x values
+        all_y_data = []  # List for all y values
         
+        # For each instance in the batch
         for instance in batch:
-            # For each instance, concatenate the data and targets horizontally
-            x_row = []
-            y_row = []
-            
+            # For each tuple (x,y) in the instance
             for x, y in instance:
-                # Convert x to a list if it is a dictionary (River format)
+                # If x is a dictionary, convert it to a list
                 if isinstance(x, dict):
                     x = list(x.values())
-                x_row.extend(x)  # Concatenate features horizontally
-                y_row.append(y)  # Concatenate targets horizontally
-            
-            X_rows.append(x_row)
-            y_rows.extend(y_row)
-            
+                all_x_data.append(x)  # Add x to the list
+                all_y_data.append(y)  # Add y to the list
+        
         # Create DataFrame and Series
-        X = pd.DataFrame(X_rows)
-        y = pd.Series(y_rows)
+        X = pd.DataFrame(all_x_data)
+        y = pd.Series(all_y_data)
         
         return X, y
 
     def get_message(self):
         """
-        Obtains the next batch of instances and converts it to pandas format.
-        Returns:
-            tuple: (pd.DataFrame, pd.Series)
-        Raises:
-            StopIteration: When no more data is available
+        Gets the next batch of instances with sliding windows in pandas format.
+        Always returns exactly batch_size instances, with overlap between consecutive instances.
+        For example, with instance_size=2, the pattern would be:
+        Batch 1: [x1,x2], [x2,x3] -> DataFrame with [x1,x2,x2,x3], Series with [y1,y2,y2,y3]
+        Batch 2: [x2,x3], [x3,x4] -> DataFrame with [x2,x3,x3,x4], Series with [y2,y3,y3,y4]
+        
+        If there's not enough data for a full batch, the last elements will be duplicated
+        to ensure we always return exactly batch_size * instance_size elements.
         """
         try:
-            while True:
-                # Get the next message from the River dataset
-                x, y = super().get_message()
-                
-                # Add the message to the current window
-                self.current_window.append((x, y))
-                
-                # If we have enough messages to form an instance
-                if len(self.current_window) >= self.instance_size:
-                    # Create an instance with the last instance_size messages
-                    instance = self.current_window[-self.instance_size:]
-                    self.current_batch.append(instance)
-                    
-                    # If we have enough instances for a batch
-                    if len(self.current_batch) >= self.batch_size:
-                        self._count += 1
-                        batch = self.current_batch
-                        self.current_batch = []  # Clear the current batch
-                        return self._convert_to_pandas(batch)
-                    
-                # If there is no more data in the dataset
-                if self._count >= self.n_instances:
-                    raise StopIteration("No more data available")
-                    
+            # We need at least instance_size elements to form an instance
+            required_min_elements = self.instance_size
+            
+            # Attempt to fill the buffer
+            while len(self.buffer) < required_min_elements and self._count < self.n_instances:
+                try:
+                    x, y = super().get_message()
+                    self.buffer.append((x, y))
+                except StopIteration:
+                    # If we can't get more data, break the loop
+                    break
+            
+            # If we can't form even one instance, stop iteration
+            if len(self.buffer) < self.instance_size:
+                raise StopIteration("No more data available")
+            
+            # Create a batch with exactly batch_size instances
+            batch = []
+            
+            # Calculate how many instances we can create from the buffer
+            available_instances = max(1, len(self.buffer) - self.instance_size + 1)
+            
+            # Create up to batch_size instances
+            for i in range(min(self.batch_size, available_instances)):
+                instance = self.buffer[i:i+self.instance_size]
+                batch.append(instance)
+            
+            # If we don't have enough instances to fill a batch, duplicate the last instance
+            while len(batch) < self.batch_size:
+                # Duplicate the last instance
+                batch.append(batch[-1])
+            
+            # Update buffer by removing the first element (sliding window)
+            if len(self.buffer) > 0:
+                self.buffer.pop(0)
+            
+            self._count += 1
+            return self._convert_to_pandas(batch)
+            
         except StopIteration:
             self.stop()
             raise
