@@ -1,5 +1,6 @@
 from fluvialgen.river_dataset_generator import RiverDatasetGenerator
 import pandas as pd
+import itertools
 
 class MovingWindowBatcher(RiverDatasetGenerator):
     """
@@ -69,12 +70,11 @@ class MovingWindowBatcher(RiverDatasetGenerator):
             # For each tuple (x,y) in the instance
             for x, y in instance:
                 # If x is a dictionary, convert it to a list
-                if isinstance(x, dict):
-                    x = list(x.values())
                 all_x_data.append(x)  # Add x to the list
                 all_y_data.append(y)  # Add y to the list
         
         # Create DataFrame and Series
+
         X = pd.DataFrame(all_x_data)
         y = pd.Series(all_y_data)
         
