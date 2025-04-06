@@ -30,7 +30,7 @@ class TestMovingWindowBatcher(unittest.TestCase):
         X, y = batcher.get_message()
 
         # Verify that X has the correct shape (batch_size rows)
-        self.assertEqual(X.shape[0], self.batch_size)
+        self.assertEqual(X.shape[0], self.batch_size * self.instance_size)
         
         # Verify that y has the correct length (batch_size * instance_size)
         self.assertEqual(len(y), self.batch_size * self.instance_size)
