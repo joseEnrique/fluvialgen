@@ -35,7 +35,7 @@ class TestMovingWindowBatcher(unittest.TestCase):
             X, y = next(self.batcher)
             self.assertIsNotNone(X)
             self.assertIsNotNone(y)
-            self.assertEqual(len(X), 2)  # batch_size
+            self.assertEqual(len(X), 4)  # batch_size
             self.assertEqual(len(y), 4)  # batch_size * instance_size
         finally:
             self.batcher.stop()
