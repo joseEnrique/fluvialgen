@@ -41,15 +41,6 @@ class MovingWindowBatcher(RiverDatasetGenerator):
         self.windows = []
         self.window_idx = 0
 
-    def create_instance(self, start_idx):
-        """
-        Creates an instance (window) starting from start_idx.
-        """
-        if start_idx + self.instance_size > len(self.data_list):
-            return None
-        
-        return self.data_list[start_idx:start_idx + self.instance_size]
-
     def _convert_to_pandas(self, batch):
         """
         Converts a batch of instances to a DataFrame (X) and a Series (y).
