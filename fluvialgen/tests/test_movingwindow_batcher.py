@@ -86,6 +86,25 @@ class TestMovingWindowBatcher(unittest.TestCase):
         self.assertEqual(y.iloc[2], 3)
 
         # Verify the content of the second window
+        self.assertEqual(X.iloc[3]['value'], 1)
+        self.assertEqual(X.iloc[4]['value'], 2)
+        self.assertEqual(X.iloc[5]['value'], 3)
+        self.assertEqual(y.iloc[3], 1)
+        self.assertEqual(y.iloc[4], 2)
+        self.assertEqual(y.iloc[5], 3)
+
+        # Get the second batch
+        X, y = batcher.get_message()
+
+        # Verify the content of the first window in second batch
+        self.assertEqual(X.iloc[0]['value'], 2)
+        self.assertEqual(X.iloc[1]['value'], 3)
+        self.assertEqual(X.iloc[2]['value'], 4)
+        self.assertEqual(y.iloc[0], 2)
+        self.assertEqual(y.iloc[1], 3)
+        self.assertEqual(y.iloc[2], 4)
+
+        # Verify the content of the second window in second batch
         self.assertEqual(X.iloc[3]['value'], 2)
         self.assertEqual(X.iloc[4]['value'], 3)
         self.assertEqual(X.iloc[5]['value'], 4)

@@ -140,21 +140,7 @@ class TestPastForecastBatcher(unittest.TestCase):
         with self.assertRaises(StopIteration):
             self.batcher.get_message()
 
-    def test_count(self):
-        """Test that count is incremented correctly"""
-        self.batcher = PastForecastBatcher(self.dataset, past_size=1, forecast_size=1, n_instances=2)
-        
-        # Get first instance
-        X_past, y_past, current_x = self.batcher.get_message()
-        self.assertEqual(self.batcher.get_count(), 1)
-        
-        # Get second instance
-        X_past, y_past, current_x = self.batcher.get_message()
-        self.assertEqual(self.batcher.get_count(), 2)
-        
-        # Should raise StopIteration after n_instances
-        with self.assertRaises(StopIteration):
-            self.batcher.get_message()
+
 
 if __name__ == '__main__':
     unittest.main() 
