@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fluvialgen"
-version = "0.2.0"
+version = "0.3.0"
 description = "A Python package for generating synthetic river networks and datasets"
 authors = [
     {name = "Jose Enrique Ruiz Navarro", email = "joseenriqueruiznavarro@gmail.com"},
