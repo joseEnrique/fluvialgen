@@ -62,17 +62,17 @@ class PastForecastBatcher(RiverDatasetGenerator):
     def get_message(self):
         """
         Gets the next instance with past and forecast windows in pandas format.
-        current_x always represents the current moment, including the last element.
+        current_x represents the element at current position + forecast_size.
         
-        For example, with past_size=3:
+        For example, with past_size=3 and forecast_size=1:
         At time t=4:
         - X_past = DataFrame with [x1, x2, x3]
         - y_past = Series with [y1, y2, y3]
-        - current_x = x4 (current moment)
+        - current_x = x5 (current moment + forecast_size)
         """
         try:
-            # We need at least past_size + 1 elements to form an instance
-            required_min_elements = self.past_size + 1
+            # We need at least past_size + 1 + forecast_size elements to form an instance
+            required_min_elements = self.past_size + 1 + self.forecast_size
             
             # Try to get the next element
             try:
@@ -91,6 +91,9 @@ class PastForecastBatcher(RiverDatasetGenerator):
                     self.buffer.append((x, y))
                     self._last_element = (x, y)
                 except StopIteration:
+                    # If we can't get more data and we don't have enough elements, stop
+                    if len(self.buffer) < required_min_elements:
+                        raise StopIteration("No more data available")
                     break
             
             # Get past data
@@ -98,12 +101,10 @@ class PastForecastBatcher(RiverDatasetGenerator):
             past_x = [x for x, _ in past_data]
             past_y = [y for _, y in past_data]
             
-            # Get current x (the next element after past)
-            if len(self.buffer) > self.past_size:
-                current_x = self.buffer[self.past_size][0]
-            else:
-                # If we're at the end, use the last element we saw
-                current_x = self._last_element[0]
+            # Get current x (the element at past_size + forecast_size)
+            if len(self.buffer) <= self.past_size + self.forecast_size:
+                raise StopIteration("Not enough data for current_x")
+            current_x = self.buffer[self.past_size + self.forecast_size][0]
             
             # Create instance
             instance = (past_x, past_y, current_x)

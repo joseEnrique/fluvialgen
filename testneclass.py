@@ -7,7 +7,7 @@ dataset = datasets.Bikes()
 
 batcher = PastForecastBatcher(
     dataset=dataset,
-    past_size=2,
+    past_size=4,
     forecast_size=0,
     n_instances=5
 )
@@ -18,7 +18,7 @@ y_batches = []
 for x, y in dataset.take(5):
     print (x,y)
 
-print ("This is what I really care about")
+print ("This is what I really Care")
 
 for x,y,current in batcher:
     print (current)
