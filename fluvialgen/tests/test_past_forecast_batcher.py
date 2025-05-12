@@ -69,7 +69,7 @@ class TestPastForecastBatcher(unittest.TestCase):
         self.batcher = PastForecastBatcher(self.dataset, past_size=2, forecast_size=0)
         
         # Get first instance
-        X_past, y_past, current_x = self.batcher.get_message()
+        X_past, y_past, current_x, current_y = self.batcher.get_message()
         
         # Check past data
         self.assertIsInstance(X_past, pd.DataFrame)
@@ -81,16 +81,17 @@ class TestPastForecastBatcher(unittest.TestCase):
         self.assertEqual(y_past.iloc[0], 1)
         self.assertEqual(y_past.iloc[1], 2)
         
-        # Check current x (should be the third element)
+        # Check current x and y (should be the third element)
         self.assertEqual(current_x['value'], 3)
         self.assertEqual(current_x['moment'], datetime(2024, 1, 1, 0, 2))
+        self.assertEqual(current_y, 3)
 
     def test_forecast_size_one(self):
         """Test PastForecastBatcher with forecast_size=1"""
         self.batcher = PastForecastBatcher(self.dataset, past_size=2, forecast_size=1)
         
         # Get first instance
-        X_past, y_past, current_x = self.batcher.get_message()
+        X_past, y_past, current_x, current_y = self.batcher.get_message()
         
         # Check past data
         self.assertIsInstance(X_past, pd.DataFrame)
@@ -102,16 +103,17 @@ class TestPastForecastBatcher(unittest.TestCase):
         self.assertEqual(y_past.iloc[0], 1)
         self.assertEqual(y_past.iloc[1], 2)
         
-        # Check current x (should be the fourth element)
+        # Check current x and y (should be the fourth element)
         self.assertEqual(current_x['value'], 4)
         self.assertEqual(current_x['moment'], datetime(2024, 1, 1, 0, 3))
+        self.assertEqual(current_y, 4)
 
     def test_forecast_size_two(self):
         """Test PastForecastBatcher with forecast_size=2"""
         self.batcher = PastForecastBatcher(self.dataset, past_size=2, forecast_size=2)
         
         # Get first instance
-        X_past, y_past, current_x = self.batcher.get_message()
+        X_past, y_past, current_x, current_y = self.batcher.get_message()
         
         # Check past data
         self.assertIsInstance(X_past, pd.DataFrame)
@@ -123,9 +125,10 @@ class TestPastForecastBatcher(unittest.TestCase):
         self.assertEqual(y_past.iloc[0], 1)
         self.assertEqual(y_past.iloc[1], 2)
         
-        # Check current x (should be the fifth element)
+        # Check current x and y (should be the fifth element)
         self.assertEqual(current_x['value'], 5)
         self.assertEqual(current_x['moment'], datetime(2024, 1, 1, 0, 4))
+        self.assertEqual(current_y, 5)
 
     def test_insufficient_data(self):
         """Test PastForecastBatcher with insufficient data"""

@@ -111,7 +111,7 @@ batcher = PastForecastBatcher(
 # Train the model
 try:
     # Process instances and train the model
-    for X_past, y_past, current_x in batcher:
+    for X_past, y_past, current_x, current_y in batcher:
         # Train on past data
         for i in range(len(X_past)):
             x = X_past.iloc[i]
@@ -120,7 +120,7 @@ try:
             
         # Make prediction for current moment
         y_pred = model.predict_one(current_x)
-        metric.update(current_x['value'], y_pred)
+        metric.update(current_y, y_pred)
             
     print(f"Final MAE: {metric}")
 
@@ -149,9 +149,16 @@ For each instance, PastForecastBatcher returns:
 - `X_past`: DataFrame with past data
 - `y_past`: Series with past targets
 - `current_x`: Dictionary with current moment data
+- `current_y`: Float with current moment target
 
 For example, with `past_size=3` and `forecast_size=1`:
-- At time t=4:
-  - `X_past` = DataFrame with [x1, x2, x3]
-  - `y_past` = Series with [y1, y2, y3]
-  - `current_x` = x4 (current moment)
+- First instance:
+  - `X_past` = DataFrame with [x1,x2,x3]
+  - `y_past` = Series with [y1,y2,y3]
+  - `current_x` = x5
+  - `current_y` = y5
+- Second instance:
+  - `X_past` = DataFrame with [x2,x3,x4]
+  - `y_past` = Series with [y2,y3,y4]
+  - `current_x` = x6
+  - `current_y` = y6
