@@ -4,7 +4,7 @@ import pandas as pd
 class PastForecastBatcher(RiverDatasetGenerator):
     """
     A generator for creating instances with past data and forecast windows.
-    current_x and current_y always represent the current moment, including the last element.
+    The forecast_size parameter determines which future data point to include in the past_y.
     """
     def __init__(
         self,
@@ -20,7 +20,8 @@ class PastForecastBatcher(RiverDatasetGenerator):
         Args:
             dataset: The River dataset to iterate over
             past_size: Number of past instances to include in each window
-            forecast_size: Number of future instances to include in each window (not used for current_x/y)
+            forecast_size: Number of future instances to include as offset (0 means next element after past data, 
+                          1 means one more step ahead, etc.)
             stream_period: Delay between consecutive messages (ms)
             timeout: Maximum wait time (ms)
             n_instances: Maximum number of instances to process
@@ -43,34 +44,33 @@ class PastForecastBatcher(RiverDatasetGenerator):
         Converts an instance to pandas objects.
         
         Args:
-            instance: A tuple (past_x, past_y, current_x, current_y)
+            instance: A tuple (past_x, past_y)
             
         Returns:
-            tuple: (pd.DataFrame, pd.Series, dict, float) where:
+            tuple: (pd.DataFrame, float) where:
             - X_past is a DataFrame with all past x data
-            - y_past is a Series with all past y values
-            - current_x is the current x value (dict)
-            - current_y is the current y value (float)
+            - y_past is the forecast value
         """
-        past_x, past_y, current_x, current_y = instance
+        past_x, past_y = instance
         
-        # Create DataFrame and Series
-        X_past = pd.DataFrame(past_x)
-        y_past = pd.Series(past_y)
+        # Create DataFrame (past_y is already a single value, no need to convert)
+        past_x_df = pd.DataFrame(past_x)
         
-        return X_past, y_past, current_x, current_y
+        return past_x_df, past_y
 
     def get_message(self):
         """
         Gets the next instance with past and forecast windows in pandas format.
-        current_x and current_y represent the elements at current position + forecast_size.
+        The forecast_size parameter determines which future data to include.
         
-        For example, with past_size=3 and forecast_size=1:
+        For example, with past_size=3 and forecast_size=0:
         At time t=4:
         - X_past = DataFrame with [x1, x2, x3]
-        - y_past = Series with [y1, y2, y3]
-        - current_x = x5 (current moment + forecast_size)
-        - current_y = y5 (current moment + forecast_size)
+        - y_past = y4 (value at past_size + forecast_size position)
+        
+        With past_size=3 and forecast_size=1:
+        - X_past = DataFrame with [x1, x2, x3]
+        - y_past = y5 (value at past_size + forecast_size position)
         """
         try:
             # We need at least past_size + 1 + forecast_size elements to form an instance
@@ -101,16 +101,20 @@ class PastForecastBatcher(RiverDatasetGenerator):
             # Get past data
             past_data = self.buffer[:self.past_size]
             past_x = [x for x, _ in past_data]
-            past_y = [y for _, y in past_data]
             
-            # Get current x and y (the elements at past_size + forecast_size)
-            if len(self.buffer) <= self.past_size + self.forecast_size:
-                raise StopIteration("Not enough data for current_x/y")
-            current_x = self.buffer[self.past_size + self.forecast_size][0]
-            current_y = self.buffer[self.past_size + self.forecast_size][1]
+            # Get past_y values including the forecast position
             
+            # Add the forecast element y-value based on forecast_size
+            forecast_position = self.past_size + self.forecast_size
+            if len(self.buffer) <= forecast_position:
+                raise StopIteration(f"Not enough data for forecast at position {forecast_position}")
+            
+            
+            past_y = self.buffer[forecast_position][1]
+            
+
             # Create instance
-            instance = (past_x, past_y, current_x, current_y)
+            instance = (past_x, past_y)
             
             # Remove the first element if we have more elements
             if len(self.buffer) > self.past_size:

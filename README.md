@@ -84,7 +84,7 @@ finally:
 
 ### PastForecastBatcher
 
-This class provides a way to process data with past and forecast windows:
+This class provides a way to process data with past data and forecast values:
 
 ```python
 from river import compose, linear_model, preprocessing, optim, metrics
@@ -104,23 +104,25 @@ dataset = datasets.Bikes()
 batcher = PastForecastBatcher(
     dataset=dataset,
     past_size=3,      # Number of past instances to include
-    forecast_size=1,  # Number of future instances to include
+    forecast_size=1,  # Use data 1 position ahead of past window
     n_instances=1000
 )
 
 # Train the model
 try:
     # Process instances and train the model
-    for X_past, y_past, current_x, current_y in batcher:
+    for X_past, y_past in batcher:
         # Train on past data
         for i in range(len(X_past)):
             x = X_past.iloc[i]
             target = y_past.iloc[i]
             model.learn_one(x, target)
             
-        # Make prediction for current moment
-        y_pred = model.predict_one(current_x)
-        metric.update(current_y, y_pred)
+        # Make prediction for forecast value (last element in y_past)
+        forecast_value = y_past.iloc[-1]
+        forecast_features = X_past.iloc[-1]  # Use last feature vector for prediction
+        y_pred = model.predict_one(forecast_features)
+        metric.update(forecast_value, y_pred)
             
     print(f"Final MAE: {metric}")
 
@@ -147,18 +149,20 @@ For example, with `instance_size=2` and `batch_size=2`:
 ### PastForecastBatcher
 For each instance, PastForecastBatcher returns:
 - `X_past`: DataFrame with past data
-- `y_past`: Series with past targets
-- `current_x`: Dictionary with current moment data
-- `current_y`: Float with current moment target
+- `y_past`: Series with past targets and one forecast target value
 
-For example, with `past_size=3` and `forecast_size=1`:
+For example, with `past_size=3` and `forecast_size=0`:
 - First instance:
   - `X_past` = DataFrame with [x1,x2,x3]
-  - `y_past` = Series with [y1,y2,y3]
-  - `current_x` = x5
-  - `current_y` = y5
+  - `y_past` = Series with [y1,y2,y3,y4] (includes next element)
 - Second instance:
   - `X_past` = DataFrame with [x2,x3,x4]
-  - `y_past` = Series with [y2,y3,y4]
-  - `current_x` = x6
-  - `current_y` = y6
+  - `y_past` = Series with [y2,y3,y4,y5] (includes next element)
+
+With `past_size=3` and `forecast_size=1`:
+- First instance:
+  - `X_past` = DataFrame with [x1,x2,x3]
+  - `y_past` = Series with [y1,y2,y3,y5] (includes element 1 position ahead)
+- Second instance:
+  - `X_past` = DataFrame with [x2,x3,x4]
+  - `y_past` = Series with [y2,y3,y4,y6] (includes element 1 position ahead)
