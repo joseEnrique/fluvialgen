@@ -111,18 +111,17 @@ batcher = PastForecastBatcher(
 # Train the model
 try:
     # Process instances and train the model
-    for X_past, y_past in batcher:
+    for X_past, y_forecast in batcher:
         # Train on past data
         for i in range(len(X_past)):
             x = X_past.iloc[i]
-            target = y_past.iloc[i]
-            model.learn_one(x, target)
+            # Note: y_forecast is a single value, not a Series
+            # You would need to use your own past y values or another data source
             
-        # Make prediction for forecast value (last element in y_past)
-        forecast_value = y_past.iloc[-1]
+        # Make prediction for the forecast position
         forecast_features = X_past.iloc[-1]  # Use last feature vector for prediction
         y_pred = model.predict_one(forecast_features)
-        metric.update(forecast_value, y_pred)
+        metric.update(y_forecast, y_pred)
             
     print(f"Final MAE: {metric}")
 
@@ -148,21 +147,21 @@ For example, with `instance_size=2` and `batch_size=2`:
 
 ### PastForecastBatcher
 For each instance, PastForecastBatcher returns:
-- `X_past`: DataFrame with past data
-- `y_past`: Series with past targets and one forecast target value
+- `X_past`: DataFrame with past feature data
+- `y_forecast`: Single value representing the target at the forecast position
 
 For example, with `past_size=3` and `forecast_size=0`:
 - First instance:
   - `X_past` = DataFrame with [x1,x2,x3]
-  - `y_past` = Series with [y1,y2,y3,y4] (includes next element)
+  - `y_forecast` = y4 (value at past_size + forecast_size position)
 - Second instance:
   - `X_past` = DataFrame with [x2,x3,x4]
-  - `y_past` = Series with [y2,y3,y4,y5] (includes next element)
+  - `y_forecast` = y5 (value at past_size + forecast_size position)
 
 With `past_size=3` and `forecast_size=1`:
 - First instance:
   - `X_past` = DataFrame with [x1,x2,x3]
-  - `y_past` = Series with [y1,y2,y3,y5] (includes element 1 position ahead)
+  - `y_forecast` = y5 (value at past_size + forecast_size position)
 - Second instance:
   - `X_past` = DataFrame with [x2,x3,x4]
-  - `y_past` = Series with [y2,y3,y4,y6] (includes element 1 position ahead)
+  - `y_forecast` = y6 (value at past_size + forecast_size position)
