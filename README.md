@@ -82,6 +82,60 @@ finally:
     batcher.stop()
 ```
 
+### Using CSV files
+
+You can use CSV files directly with the provided CSV generators, which inherit from the same Base as other generators.
+
+#### CSVDatasetGenerator
+
+Basic CSV streaming with timing control:
+
+```python
+from fluvialgen import CSVDatasetGenerator
+
+# Stream data from CSV
+csv_stream = CSVDatasetGenerator(
+    filepath="data.csv",
+    target_column="value",
+    feature_columns=["moment", "c1", "c2"],
+    parse_dates=["moment"],
+    stream_period=1000,  # 1 second between elements
+    n_instances=1000
+)
+
+try:
+    for x, y in csv_stream:
+        print(f"Features: {x}, Target: {y}")
+finally:
+    csv_stream.stop()
+```
+
+#### CSVPastForecastBatcher
+
+Create past-forecast windows directly from CSV:
+
+```python
+from fluvialgen import CSVPastForecastBatcher
+
+# Create past-forecast batches from CSV
+batcher = CSVPastForecastBatcher(
+    filepath="data.csv",
+    target_column="value",
+    feature_columns=["moment", "c1", "c2"],
+    parse_dates=["moment"],
+    past_size=3,      # Number of past instances to include
+    forecast_size=1,  # Use data 1 position ahead of past window
+    n_instances=1000
+)
+
+try:
+    for X_past, y_forecast in batcher:
+        print(f"Past data shape: {X_past.shape}")
+        print(f"Forecast value: {y_forecast}")
+finally:
+    batcher.stop()
+```
+
 ### PastForecastBatcher
 
 This class provides a way to process data with past data and forecast values:
@@ -145,8 +199,8 @@ For example, with `instance_size=2` and `batch_size=2`:
   - `X` = DataFrame with [x2,x3,x3,x4]
   - `y` = Series with [y2,y3,y3,y4]
 
-### PastForecastBatcher
-For each instance, PastForecastBatcher returns:
+### PastForecastBatcher & CSVPastForecastBatcher
+For each instance, both PastForecastBatcher and CSVPastForecastBatcher return:
 - `X_past`: DataFrame with past feature data
 - `y_forecast`: Single value representing the target at the forecast position
 
@@ -165,3 +219,14 @@ With `past_size=3` and `forecast_size=1`:
 - Second instance:
   - `X_past` = DataFrame with [x2,x3,x4]
   - `y_forecast` = y6 (value at past_size + forecast_size position)
+
+### CSVDatasetGenerator
+For each element, CSVDatasetGenerator returns:
+- `x`: Dictionary with feature values
+- `y`: Single target value
+
+The generator automatically handles:
+- CSV parsing with pandas
+- Date parsing for specified columns
+- Feature selection (automatic or manual)
+- Timing control via BaseGenerator
