@@ -1,5 +1,5 @@
 import pandas as pd
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Union
 
 from fluvialgen.csv_dataset_generator import CSVDatasetGenerator
 
@@ -13,29 +13,28 @@ class CSVPastForecastBatcher(CSVDatasetGenerator):
     def __init__(
         self,
         filepath: str,
-        target_column: str,
+        target_column,  # Can be str or Sequence[str] for multi-target
         feature_columns: Optional[Sequence[str]] = None,
         parse_dates: Optional[Sequence[str]] = None,
         past_size: int = 3,
         forecast_size: int = 0,
         stream_period: int = 0,
         timeout: int = 30000,
-        n_instances: int = 1000,
         **kwargs
     ):
         """
         Args:
             filepath: Path to the CSV file
-            target_column: Column name to use as the target y
-            feature_columns: Subset of columns to use as features X (excluding target). 
-                           If None, all columns except the target will be used.
+            target_column: Column name(s) to use as target(s). Can be a string for single target
+                          or a list/sequence of strings for multi-target.
+            feature_columns: Subset of columns to use as features X (excluding targets). 
+                           If None, all columns except the targets will be used.
             parse_dates: Column names to parse as dates
             past_size: Number of past instances to include in each window
             forecast_size: Number of future instances to include as offset (0 means next element after past data, 
                           1 means one more step ahead, etc.)
             stream_period: Delay between consecutive messages (ms)
             timeout: Maximum wait time (ms)
-            n_instances: Maximum number of instances to process
         """
         self.past_size = past_size
         self.forecast_size = forecast_size
@@ -43,11 +42,7 @@ class CSVPastForecastBatcher(CSVDatasetGenerator):
         self._batch_count = 0  # Count of batches produced, not individual elements
         self._last_element = None
 
-        # Initialize parent CSV generator with a higher limit to allow for buffering
-        # We need extra instances for the buffer and forecast window
-        buffer_instances = past_size + forecast_size + 10  # Extra buffer for sliding window
-        total_instances = max(n_instances + buffer_instances, 1000)  # At least 1000
-        
+        # Initialize parent CSV generator (processes entire CSV)
         super().__init__(
             filepath=filepath,
             target_column=target_column,
@@ -55,7 +50,6 @@ class CSVPastForecastBatcher(CSVDatasetGenerator):
             parse_dates=parse_dates,
             stream_period=stream_period,
             timeout=timeout,
-            n_instances=total_instances,
             **kwargs
         )
 
@@ -67,13 +61,13 @@ class CSVPastForecastBatcher(CSVDatasetGenerator):
             instance: A tuple (past_x, past_y)
             
         Returns:
-            tuple: (pd.DataFrame, float) where:
+            tuple: (pd.DataFrame, Union[float, dict]) where:
             - X_past is a DataFrame with all past x data
-            - y_past is the forecast value
+            - y_past is the forecast value(s) - single value for single target, dict for multi-target
         """
         past_x, past_y = instance
         
-        # Create DataFrame (past_y is already a single value, no need to convert)
+        # Create DataFrame (past_y is already a single value or dict, no need to convert)
         past_x_df = pd.DataFrame(past_x)
         
         return past_x_df, past_y
@@ -107,7 +101,7 @@ class CSVPastForecastBatcher(CSVDatasetGenerator):
                     raise StopIteration("No more data available")
             
             # If we don't have enough elements yet, try to get more
-            while len(self.buffer) < required_min_elements and self._batch_count < self.n_instances:
+            while len(self.buffer) < required_min_elements:
                 try:
                     x, y = super().get_message()
                     self.buffer.append((x, y))

@@ -1,5 +1,5 @@
 import pandas as pd
-from typing import Iterator, List, Optional, Sequence, Tuple
+from typing import Iterator, List, Optional, Sequence, Tuple, Union
 
 from fluvialgen.base_generator import BaseGenerator
 
@@ -8,64 +8,75 @@ class CSVDatasetGenerator(BaseGenerator):
     """
     Stream-like generator over a CSV file that yields (x, y) tuples.
     Uses the same Base (BaseGenerator) timing/iteration behavior as other generators.
+    Supports both single-target and multi-target scenarios.
 
     Parameters
     ----------
     filepath: str
         Path to the CSV file.
-    target_column: str
-        Column name to use as the target y.
+    target_column: Union[str, Sequence[str]]
+        Column name(s) to use as target(s). Can be a string for single target
+        or a list/sequence of strings for multi-target.
     feature_columns: Optional[Sequence[str]]
-        Subset of columns to use as features X (excluding target). If None, all
-        columns except the target will be used.
+        Subset of columns to use as features X (excluding targets). If None, all
+        columns except the targets will be used.
     parse_dates: Optional[Sequence[str]]
         Column names to parse as dates.
     stream_period: int
         Delay between consecutive messages (ms).
     timeout: int
         Maximum wait time (ms). Included for API completeness.
-    n_instances: int
-        Maximum number of instances to iterate over.
     """
 
     def __init__(
         self,
         filepath: str,
-        target_column: str,
+        target_column,  # Can be str or Sequence[str] for multi-target
         feature_columns: Optional[Sequence[str]] = None,
         parse_dates: Optional[Sequence[str]] = None,
         stream_period: int = 0,
         timeout: int = 30000,
-        n_instances: int = 1000,
         **kwargs
     ):
         super().__init__(stream_period=stream_period, timeout=timeout)
         self.filepath = filepath
-        self.target_column = target_column
+        
+        # Handle both single target and multi-target
+        if isinstance(target_column, str):
+            self.target_columns = [target_column]
+            self.is_multi_target = False
+        else:
+            self.target_columns = list(target_column)
+            self.is_multi_target = True
+        
         self.feature_columns = list(feature_columns) if feature_columns is not None else None
         self.parse_dates = list(parse_dates) if parse_dates is not None else None
-        self.n_instances = n_instances
 
         df = pd.read_csv(self.filepath, parse_dates=self.parse_dates)
 
-        if self.target_column not in df.columns:
-            raise ValueError(f"Target column '{self.target_column}' not found in CSV")
+        # Validate target columns
+        for col in self.target_columns:
+            if col not in df.columns:
+                raise ValueError(f"Target column '{col}' not found in CSV")
 
         if self.feature_columns is None:
-            self.feature_columns = [c for c in df.columns if c != self.target_column]
+            self.feature_columns = [c for c in df.columns if c not in self.target_columns]
         else:
             for col in self.feature_columns:
                 if col not in df.columns:
                     raise ValueError(f"Feature column '{col}' not found in CSV")
 
-        # Build in-memory list of (x, y) then create an iterator limited by n_instances
-        self._data: List[Tuple[dict, float]] = []
+        # Build in-memory list of (x, y) where y can be single value or dict
+        self._data: List[Tuple[dict, Union[float, dict]]] = []
         for _, row in df.iterrows():
             x = {col: row[col] for col in self.feature_columns}
-            y = row[self.target_column]
+            if self.is_multi_target:
+                y = {col: row[col] for col in self.target_columns}
+            else:
+                y = row[self.target_columns[0]]
             self._data.append((x, y))
 
-        self._iterator = iter(self._data[: self.n_instances])
+        self._iterator = iter(self._data)
 
     def __next__(self):
         # Respect BaseGenerator timing logic

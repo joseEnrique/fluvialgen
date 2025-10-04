@@ -35,8 +35,7 @@ class TestCSVPastForecastBatcher(unittest.TestCase):
                 feature_columns=["moment", "c1", "c2"],
                 parse_dates=["moment"],
                 past_size=2,
-                forecast_size=0,
-                n_instances=2
+                forecast_size=0
             )
             
             # Get first instance
@@ -79,8 +78,7 @@ class TestCSVPastForecastBatcher(unittest.TestCase):
                 feature_columns=["moment", "c1"],
                 parse_dates=["moment"],
                 past_size=2,
-                forecast_size=1,
-                n_instances=2
+                forecast_size=1
             )
             
             # Get first instance
@@ -116,8 +114,7 @@ class TestCSVPastForecastBatcher(unittest.TestCase):
                 feature_columns=None,  # Auto-select features
                 parse_dates=["moment"],
                 past_size=2,
-                forecast_size=0,
-                n_instances=2
+                forecast_size=0
             )
             
             X_past, y_past = batcher.get_message()
@@ -145,13 +142,59 @@ class TestCSVPastForecastBatcher(unittest.TestCase):
                 feature_columns=["moment", "c1"],
                 parse_dates=["moment"],
                 past_size=1,
-                forecast_size=1,
-                n_instances=2
+                forecast_size=1
             )
             
             # Should raise StopIteration because we need at least past_size + 1 + forecast_size elements
             with self.assertRaises(StopIteration):
                 batcher.get_message()
+        finally:
+            os.unlink(csv_path)
+
+    def test_multi_target_forecast_size_zero(self):
+        """Test CSVPastForecastBatcher with multiple targets and forecast_size=0"""
+        df = pd.DataFrame(
+            {
+                "moment": ["2024-01-01 00:00", "2024-01-01 00:01", "2024-01-01 00:02", "2024-01-01 00:03", "2024-01-01 00:04", "2024-01-01 00:05"],
+                "target1": [1, 2, 3, 4, 5, 6],
+                "target2": [10, 20, 30, 40, 50, 60],
+                "c1": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
+            }
+        )
+        csv_path = _write_temp_csv(df)
+        try:
+            batcher = CSVPastForecastBatcher(
+                filepath=csv_path,
+                target_column=["target1", "target2"],
+                feature_columns=["moment", "c1"],
+                parse_dates=["moment"],
+                past_size=2,
+                forecast_size=0
+            )
+            
+            # Get first instance
+            X_past, y_past = batcher.get_message()
+            
+            # Check past data
+            self.assertIsInstance(X_past, pd.DataFrame)
+            self.assertEqual(len(X_past), 2)  # past_size=2
+            self.assertEqual(X_past.iloc[0]['c1'], 0.1)
+            self.assertEqual(X_past.iloc[1]['c1'], 0.2)
+            
+            # Check forecast value (y_past should be a dict for multi-target)
+            self.assertIsInstance(y_past, dict)
+            self.assertEqual(y_past["target1"], 3)  # Element at past_size + forecast_size (2+0=2)
+            self.assertEqual(y_past["target2"], 30)
+            
+            # Get second instance
+            X_past2, y_past2 = batcher.get_message()
+            self.assertEqual(len(X_past2), 2)
+            self.assertEqual(X_past2.iloc[0]['c1'], 0.2)
+            self.assertEqual(X_past2.iloc[1]['c1'], 0.3)
+            self.assertEqual(y_past2["target1"], 4)  # Element at position 3
+            self.assertEqual(y_past2["target2"], 40)
+            
+            self.assertEqual(batcher.get_count(), 2)
         finally:
             os.unlink(csv_path)
 
